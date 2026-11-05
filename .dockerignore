@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.gitignore
+dev.db
+dev.db-journal
+dev.db-wal
+dev.db-shm
+cloudflared.exe
+*.log
+.env.local
+.env*.local

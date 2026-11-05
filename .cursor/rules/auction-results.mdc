@@ -1,0 +1,14 @@
+---
+description: Auction results integrity, scoring, and labeling rules
+alwaysApply: true
+---
+
+# Auction results
+
+- Results are NEVER calculated or trusted from the client. The server computes them from database records only.
+- Scoring lives in one pure, side-effect-free function in a shared module, driven entirely by a config object. No magic numbers elsewhere.
+- Store and compute money as integers (smallest unit). Never use floats for purse math.
+- Never invent players, ratings, or stats. Use only DB data or explicitly supplied fictional ratings.
+- Match the existing project's stack, naming, folder structure, and styling. Do not touch unrelated files.
+- Every new function that affects results must have unit tests.
+- Label results as "Best Auction Squad", never as the official Pro Kabaddi champion.

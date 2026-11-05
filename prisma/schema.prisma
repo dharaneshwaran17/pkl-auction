@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum AuctionStatus {
+  WAITING
+  LIVE
+  PAUSED
+  ENDED
+}
+
+enum PlayerRole {
+  raider
+  defender
+  allRounder
+}
+
+enum PlayerLotStatus {
+  AVAILABLE
+  SOLD
+  UNSOLD
+}
+
+enum LotStatus {
+  PENDING
+  OPEN
+  ACTIVE
+  SOLD
+  UNSOLD
+  CANCELLED
+}
+
+enum ResultStatus {
+  WINNER
+  SHARED_WINNERS
+  NO_ELIGIBLE_WINNER
+}
+
+model User {
+  id        String    @id @default(cuid())
+  name      String
+  hosted    Auction[] @relation("AuctionHost")
+  teams     Team[]
+  createdAt DateTime  @default(now())
+}
+
+model Auction {
+  id               String         @id @default(cuid())
+  code             String         @unique
+  name             String
+  status           AuctionStatus  @default(WAITING)
+  hostId           String
+  host             User           @relation("AuctionHost", fields: [hostId], references: [id])
+  hostSecret       String?
+  version          Int            @default(1)
+  timerDeadline    DateTime?
+  timerRemainingMs Int?
+  minSquad         Int            @default(12)
+  maxSquad         Int            @default(18)
+  initialPurse     Int
+  currentLotId     String?
+  createdAt        DateTime       @default(now())
+  teams            Team[]
+  players          Player[]
+  lots             Lot[]
+  purchases        Purchase[]
+  result           AuctionResult?
+}
+
+model Team {
+  id              String     @id @default(cuid())
+  auctionId       String
+  auction         Auction    @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  name            String
+  logoUrl         String?
+  colorPrimary    String
+  colorSecondary  String
+  initialPurse    Int
+  currentPurse    Int
+  ownerId         String?
+  owner           User?      @relation(fields: [ownerId], references: [id])
+  bids            Bid[]
+  purchases       Purchase[]
+}
+
+model Player {
+  id        String          @id @default(cuid())
+  auctionId String
+  auction   Auction         @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  name      String
+  role      PlayerRole
+  rating    Int
+  basePrice Int
+  status    PlayerLotStatus @default(AVAILABLE)
+  lots      Lot[]
+  purchases Purchase[]
+}
+
+model Lot {
+  id        String    @id @default(cuid())
+  auctionId String
+  auction   Auction   @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  playerId  String
+  player    Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  status    LotStatus @default(OPEN)
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  bids      Bid[]
+}
+
+model Bid {
+  id        String   @id @default(cuid())
+  lotId     String
+  lot       Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  amount    Int
+  createdAt DateTime @default(now())
+}
+
+model Purchase {
+  id        String   @id @default(cuid())
+  auctionId String
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  lotId     String?
+  basePrice Int
+  soldPrice Int
+  createdAt DateTime @default(now())
+
+  @@unique([auctionId, playerId])
+}
+
+model AuctionResult {
+  id                    String       @id @default(cuid())
+  auctionId             String       @unique
+  auction               Auction      @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  status                ResultStatus
+  scoringConfigVersion  String
+  scoringConfigSnapshot Json
+  resultSnapshot        Json
+  calculatedAt          DateTime
+  integrityWarnings     Json
+}
