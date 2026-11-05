@@ -4,6 +4,7 @@ import next from "next";
 import { Server } from "socket.io";
 import { setIO } from "./src/lib/realtime";
 import { AuctionEngine } from "./src/lib/auction/engine";
+import { prisma } from "./src/lib/prisma";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "0.0.0.0";
@@ -12,9 +13,27 @@ const port = Number(process.env.PORT || 3000);
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-app.prepare().then(() => {
-  // Restore any LIVE auctions as PAUSED upon server restart
-  void AuctionEngine.onServerStart();
+app.prepare().then(async () => {
+  const dbUrl = process.env.DATABASE_URL;
+  if (process.env.NODE_ENV === "production" && (!dbUrl || (!dbUrl.startsWith("postgres://") && !dbUrl.startsWith("postgresql://")))) {
+    console.error(
+      "[FATAL DB ERROR] Production requires a valid PostgreSQL connection string in DATABASE_URL. SQLite and dev.db are strictly disabled in production."
+    );
+    process.exit(1);
+  }
+
+  console.log("[Server] Verifying database connectivity...");
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    console.log("[Server] Database connection healthy.");
+    await AuctionEngine.onServerStart();
+    console.log("[Server] Interrupted auction recovery completed.");
+  } catch (err) {
+    console.error("[FATAL STARTUP ERROR] Database initialization failed:", (err as Error).message);
+    if (process.env.NODE_ENV === "production") {
+      process.exit(1);
+    }
+  }
 
   const httpServer = createServer((req, res) => {
     const parsedUrl = parse(req.url ?? "/", true);

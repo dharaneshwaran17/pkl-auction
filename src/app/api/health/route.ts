@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: Request) {
   const startTime = Date.now();
   let dbStatus = "unhealthy";
   let errorMsg = null;
