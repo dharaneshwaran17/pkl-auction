@@ -21,7 +21,7 @@ export function prepareDatabase() {
     execSync("npx prisma generate", { stdio: "inherit" });
 
     console.log("[prepare-db] Applying schema updates to PostgreSQL safely (without data wipe)...");
-    execSync("npx prisma db push --skip-generate", { stdio: "inherit" });
+    execSync("npx prisma db push", { stdio: "inherit" });
   } else {
     console.log("[prepare-db] Using local SQLite database.");
     if (!schema.includes('provider = "sqlite"')) {

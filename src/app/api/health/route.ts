@@ -1,6 +1,10 @@
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
+  // Reading runtime request headers opts the route handler into dynamic request-time execution
+  await headers();
+
   const startTime = Date.now();
   let dbStatus = "unhealthy";
   let errorMsg = null;

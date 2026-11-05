@@ -103,7 +103,7 @@ async function seedLiveAuction(opts?: { tamperPurse?: boolean; extraAuctionPurch
 describe("finalization", () => {
   beforeAll(() => {
     if (!fs.existsSync(dbPath)) {
-      execSync("npx prisma db push --skip-generate", { stdio: "inherit" });
+      execSync("npx prisma db push", { stdio: "inherit" });
     }
   });
 

@@ -68,7 +68,7 @@ This guide walks you step-by-step through deploying your PKL Auction Simulator t
 1. **`prepare-db.ts`** runs during the build:
    - Detects the PostgreSQL `DATABASE_URL`.
    - Generates the Prisma Client configured for PostgreSQL (`@prisma/adapter-pg`).
-   - Runs `npx prisma db push --skip-generate` to safely apply the schema to your database without resetting or wiping any existing auction history.
+   - Runs `npx prisma db push` to safely apply the schema to your database without resetting or wiping any existing auction history.
 2. **Next.js Turbopack** compiles production pages and API routes.
 3. **`server.ts`** boots:
    - Binds to `0.0.0.0:10000`.
