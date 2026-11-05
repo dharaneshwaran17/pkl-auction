@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+
+export type SocketConnectionState = "connected" | "connecting" | "reconnecting" | "disconnected";
 
 export function useAuctionSocket(
   auctionId: string,
@@ -11,6 +13,8 @@ export function useAuctionSocket(
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
+  const [connectionState, setConnectionState] = useState<SocketConnectionState>("connecting");
+
   useEffect(() => {
     if (!auctionId) return;
 
@@ -18,10 +22,42 @@ export function useAuctionSocket(
     const socket: Socket = io({
       path: "/socket.io",
       transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
     });
 
     socket.on("connect", () => {
+      setConnectionState("connected");
       socket.emit("join", { auctionId, isHost });
+    });
+
+    socket.on("connecting", () => {
+      setConnectionState("connecting");
+    });
+
+    socket.on("reconnect_attempt", () => {
+      setConnectionState("reconnecting");
+    });
+
+    socket.on("reconnect", () => {
+      setConnectionState("connected");
+      socket.emit("join", { auctionId, isHost });
+      // Fetch fresh state on reconnect to sync state seamlessly
+      onEventRef.current("auction:updated", { auctionId });
+    });
+
+    socket.on("disconnect", (reason) => {
+      if (reason === "io server disconnect") {
+        socket.connect();
+      }
+      setConnectionState("disconnected");
+    });
+
+    socket.on("connect_error", () => {
+      setConnectionState("reconnecting");
     });
 
     const handle = (eventName: string) => (payload?: unknown) => {
@@ -47,4 +83,10 @@ export function useAuctionSocket(
       socket.disconnect();
     };
   }, [auctionId, isHost]);
+
+  return {
+    connectionState,
+    isConnected: connectionState === "connected",
+    isReconnecting: connectionState === "reconnecting",
+  };
 }

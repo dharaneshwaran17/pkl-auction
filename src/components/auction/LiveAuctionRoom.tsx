@@ -235,8 +235,11 @@ export function LiveAuctionRoom({ auctionId }: { auctionId: string }) {
     void loadState();
   }, [loadState]);
 
-  // Realtime Socket listener
-  useAuctionSocket(auctionId, Boolean(data?.isHost), (event, payload) => {
+  // Realtime Socket listener with connection state tracking
+  const { connectionState, isConnected, isReconnecting } = useAuctionSocket(
+    auctionId,
+    Boolean(data?.isHost),
+    (event, payload) => {
     if (event === "auction:finalized") {
       router.push(`/auction/${auctionId}/results`);
       return;
@@ -456,6 +459,17 @@ export function LiveAuctionRoom({ auctionId }: { auctionId: string }) {
             <span className="font-mono text-lg font-black tracking-wider text-white">
               {auction.code}
             </span>
+            <span
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                isConnected
+                  ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+                  : "bg-amber-500/15 border-amber-500/40 text-amber-300 animate-pulse"
+              }`}
+              title={isConnected ? "Realtime WebSocket Connected" : "Connecting to auction..."}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-emerald-400" : "bg-amber-400"}`} />
+              <span>{isConnected ? "LIVE" : "SYNCING"}</span>
+            </span>
             {isHost ? (
               <span className="px-2.5 py-0.5 rounded-full bg-orange/20 border border-orange/40 text-orange text-[10px] font-black tracking-wider flex items-center gap-1 shadow-sm">
                 <span>👑</span>
@@ -619,6 +633,14 @@ export function LiveAuctionRoom({ auctionId }: { auctionId: string }) {
           </button>
         </div>
       </header>
+
+      {/* Reconnecting banner for sleeping Render free instances */}
+      {(isReconnecting || connectionState === "disconnected") && (
+        <div className="w-full bg-amber-500/20 border-b border-amber-500/40 text-amber-300 px-4 py-2 text-xs flex items-center justify-center gap-2 font-medium z-30 shrink-0 animate-in fade-in">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+          <span>Syncing with server... (Free Render instances may take ~30-50s to wake from idle standby)</span>
+        </div>
+      )}
 
       {/* 2. THREE-COLUMN AUCTION LAYOUT */}
       <div className="flex-1 flex overflow-hidden">

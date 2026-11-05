@@ -51,9 +51,10 @@ export async function GET(
 
     // If host was established on setup, issue the host authorization cookie
     if (shouldSetCookie && hostSecret) {
+      const isSecure = process.env.NODE_ENV === "production" ? "; Secure" : "";
       response.headers.append(
         "Set-Cookie",
-        `${getHostCookieName(id)}=${encodeURIComponent(hostSecret)}; Path=/; HttpOnly; SameSite=Lax`
+        `${getHostCookieName(id)}=${encodeURIComponent(hostSecret)}; Path=/; HttpOnly; SameSite=Lax${isSecure}`
       );
     }
 

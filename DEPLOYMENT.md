@@ -1,126 +1,103 @@
-# 🚀 Production Deployment Guide: Pro Kabaddi Live Auction Simulator
+# 🚀 Complete Production Deployment Guide: PKL Multiplayer Auction Simulator on Render (Free Tier)
 
-This guide walks you through deploying your live multiplayer PKL Auction Simulator to a public cloud provider so that **your laptop does not need to stay online**.
-
----
-
-## Architecture Overview
-- **Application Engine:** Next.js App Router + Custom Node HTTP Server running Socket.IO.
-- **Real-Time WebSockets:** Sockets and HTTP served from the exact same origin (no CORS or cookie sync issues).
-- **Persistent Database:** PostgreSQL in production (via `@prisma/adapter-pg`) / SQLite in development (`@prisma/adapter-libsql`).
-- **Health Endpoint:** `GET /api/health` monitors database connectivity, uptime, and memory.
+This guide walks you step-by-step through deploying your PKL Auction Simulator to **Render** using **100% free resources**.
 
 ---
 
-## Option 1: 1-Click Deployment on Render (Recommended & Easiest)
+## 🏗️ Architecture & Free Tier Specs
 
-Render provides persistent Node.js web services and managed PostgreSQL databases.
+| Component | Free Solution | Details & Limits |
+| :--- | :--- | :--- |
+| **Web Service** | **Render Free Web Service** | 512 MB RAM, 0.1 CPU, spins down after 15 min of inactivity, cold start ~30–50s. |
+| **Realtime Sockets** | **Embedded Socket.IO Server** | Runs within the same persistent Node.js process as Next.js (`server.ts`). Shared origin, no CORS issues. |
+| **Database** | **Neon.tech (Recommended Free Postgres)** | 0.5 GB storage, permanent free tier (**does NOT expire in 30 days**). |
+| **Database Alternative** | **Render Free PostgreSQL** | 1 GB storage, but **EXPIRES & DELETES DATA after 30 days**. |
+| **Player Photos** | **Bundled Assets (`public/players/`)** | Bundled directly in git repo with automatic monogram badge fallback. |
 
-### Steps:
-1. **Push your code to GitHub:**
-   ```bash
-   git init
-   git add .
-   git commit -m "feat: complete pkl auction simulator with postgres and docker support"
-   git remote add origin https://github.com/<your-username>/pk-auction.git
-   git push -u origin master
+> [!WARNING]
+> **Render's Free PostgreSQL 30-Day Expiration:**
+> Render's built-in free database will automatically be dropped and deleted after 30 days. To ensure your auction rooms, team squads, and results remain permanently saved, **we recommend creating a free PostgreSQL database on [Neon.tech](https://neon.tech)** (free forever, setup takes 60 seconds).
+
+---
+
+## 📋 Step 1: Get a Permanent Free PostgreSQL Database (60 Seconds)
+
+1. Sign up for free at [neon.tech](https://neon.tech) (using GitHub).
+2. Create a project named `pkl-auction`.
+3. In the Neon Dashboard, copy the connection string under **Connection Details**:
    ```
+   postgresql://username:password@ep-sample-pooler.region.neon.tech/neondb?sslmode=require
+   ```
+   *(Keep this string ready for Step 2).*
 
-2. **Deploy via Render Blueprint (`render.yaml`):**
-   - Go to [dashboard.render.com](https://dashboard.render.com).
-   - Click **New +** → **Blueprint**.
-   - Connect your `pk-auction` GitHub repository.
-   - Render automatically reads `render.yaml` and provisions:
-     1. A managed PostgreSQL database (`pkl-auction-db`).
-     2. A persistent Web Service running `npx tsx server.ts` with auto-wired `DATABASE_URL`.
-   - Click **Apply**.
+---
 
-3. **Run Initial Database Migration & Seed:**
-   - In Render Dashboard, open the Web Service shell (or under Settings → Post-Deploy Command):
+## 📋 Step 2: Deploy to Render (Free Tier)
+
+### Method A: Deploy via GitHub Repository (Recommended)
+
+1. Log in to [dashboard.render.com](https://dashboard.render.com).
+2. Click **New +** → **Web Service**.
+3. Select **Build and deploy from a Git repository** and connect your repo:
+   `https://github.com/dharaneshwaran17/pkl-auction.git`
+4. Configure the service settings:
+   - **Name:** `pkl-auction-live` *(or your preferred name)*
+   - **Region:** `Oregon (US West)` or `Singapore`
+   - **Branch:** `main`
+   - **Runtime:** `Node`
+   - **Build Command:**
      ```bash
-     npx prisma db push
-     npx tsx prisma/seed.ts
+     npm ci && npx tsx scripts/prepare-db.ts && npm run build
      ```
-
-4. **Your Public HTTPS URL:**
-   - Render provides a public HTTPS URL like: `https://pkl-auction-live.onrender.com`.
-   - Share this link with your friends. You can turn off your laptop completely!
-
----
-
-## Option 2: Deployment on Railway
-
-Railway supports persistent Node.js instances with native WebSocket and PostgreSQL support.
-
-### Steps:
-1. Go to [railway.app](https://railway.app) and create a new project.
-2. Click **Add Service** → **Database** → **PostgreSQL**.
-3. Click **Add Service** → **GitHub Repo** → select `pk-auction`.
-4. In the Web Service settings:
-   - Connect `DATABASE_URL` from the PostgreSQL service (`${{Postgres.DATABASE_URL}}`).
-   - Set Environment Variable: `NODE_ENV=production`.
-5. Under **Settings** → **Networking**, click **Generate Domain** to get your public HTTPS URL (`https://pk-auction-production.up.railway.app`).
-6. Run the initial migration via Railway CLI or dashboard query:
-   ```bash
-   railway run npx prisma db push
-   railway run npx tsx prisma/seed.ts
-   ```
+   - **Start Command:**
+     ```bash
+     npx tsx server.ts
+     ```
+   - **Instance Type:** Select **Free** ($0/month).
+5. Scroll down to **Environment Variables** and add:
+   - `NODE_ENV` = `production`
+   - `PORT` = `10000`
+   - `DATABASE_URL` = *(Paste your Neon/PostgreSQL connection string from Step 1)*
+   - `NEXT_PUBLIC_APP_URL` = `https://pkl-auction-live.onrender.com` *(adjust if your service name is different)*
+6. Click **Create Web Service**.
 
 ---
 
-## Option 3: Deploy via Docker (Any VPS / DigitalOcean / AWS EC2)
+## 🔄 What Happens During Deployment:
 
-A production-ready `Dockerfile` is included in the root directory.
+1. **`prepare-db.ts`** runs during the build:
+   - Detects the PostgreSQL `DATABASE_URL`.
+   - Generates the Prisma Client configured for PostgreSQL (`@prisma/adapter-pg`).
+   - Runs `npx prisma db push --skip-generate` to safely apply the schema to your database without resetting or wiping any existing auction history.
+2. **Next.js Turbopack** compiles production pages and API routes.
+3. **`server.ts`** boots:
+   - Binds to `0.0.0.0:10000`.
+   - Runs `AuctionEngine.onServerStart()`, which safely restores any interrupted live auctions as `PAUSED`.
+   - Mounts the Socket.IO server at `/socket.io`.
 
-### Build & Run Container:
+---
+
+## 🎮 Free Tier Runtime Behavior & Best Practices
+
+- **Idle Sleep:** Render Free instances automatically sleep after 15 minutes without web requests.
+- **Waking Up (Cold Start):** When someone visits the website after it has been asleep, it takes about 30 to 50 seconds to wake up.
+- **Reconnection Banner:** A top banner in the room notifies players:  
+  *“Syncing with server... (Free Render instances may take ~30-50s to wake from idle standby)”*  
+  The socket client automatically retries connection with backoff.
+- **Auction State Safety:** If the server restarts or wakes up, any in-progress auction will be safely held in **`PAUSED`** state. The host can explicitly review the room and click **`RESUME`**. No lot or bid data is ever lost.
+
+---
+
+## 🧪 Local Testing & Verification Checklist
+
+Before pushing changes:
 ```bash
-# 1. Build Docker image
-docker build -t pkl-auction:latest .
+# 1. Run unit tests
+npm test
 
-# 2. Run container with PostgreSQL
-docker run -d \
-  --name pkl-auction \
-  -p 3000:3000 \
-  -e NODE_ENV=production \
-  -e DATABASE_URL="postgresql://user:password@postgres-host:5432/pkldb?sslmode=require" \
-  pkl-auction:latest
-```
+# 2. Verify image decodes and mappings
+npx tsx scripts/verify-all-images.ts
 
----
-
-## Database Backup and Recovery
-
-### PostgreSQL Backup:
-```bash
-pg_dump -U pkl_admin -h <host> -d pkl_auction > backup_$(date +%Y%m%d).sql
-```
-
-### PostgreSQL Restore:
-```bash
-psql -U pkl_admin -h <host> -d pkl_auction < backup_20261104.sql
-```
-
----
-
-## Health Check Endpoint
-To monitor your live deployment:
-```http
-GET /api/health
-```
-Response:
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-11-04T13:40:00.000Z",
-  "uptimeSeconds": 3600,
-  "database": {
-    "status": "healthy",
-    "responseTimeMs": 12
-  },
-  "memory": {
-    "rssMb": 110,
-    "heapUsedMb": 65
-  },
-  "version": "1.0.0"
-}
+# 3. Test build compatibility
+npm run build
 ```

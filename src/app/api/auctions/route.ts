@@ -42,9 +42,10 @@ export async function POST(request: Request) {
 
     // Automatically issue the Host Secret cookie to the room creator
     if (auction.hostSecret) {
+      const isSecure = process.env.NODE_ENV === "production" ? "; Secure" : "";
       response.headers.append(
         "Set-Cookie",
-        `${getHostCookieName(auction.id)}=${encodeURIComponent(auction.hostSecret)}; Path=/; HttpOnly; SameSite=Lax`
+        `${getHostCookieName(auction.id)}=${encodeURIComponent(auction.hostSecret)}; Path=/; HttpOnly; SameSite=Lax${isSecure}`
       );
     }
 

@@ -21,7 +21,12 @@ export async function upsertSessionUser(name: string) {
     }
   }
   const user = await prisma.user.create({ data: { name: trimmed } });
-  jar.set(COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/" });
+  jar.set(COOKIE, user.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+  });
   return user;
 }
 
